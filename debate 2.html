@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debate Platform Setup</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .language-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="language-toggle">
+        <button 
+            id="languageToggle" 
+            class="bg-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2"
+        >
+            <span class="text-xl">🌐</span>
+            <span id="languageText">हिंदी</span>
+        </button>
+    </div>
+    <div id="root"></div>
+    <script type="text/babel">
+        const SUGGESTED_TOPICS = [
+            "Should social media be regulated by governments?",
+            "Is artificial intelligence beneficial for humanity?",
+            "Should education be free at all levels?",
+            "Is remote work the future of employment?",
+            "Should voting be mandatory?",
+            "Are cryptocurrencies the future of money?",
+            "Should genetic engineering be allowed?",
+            "Is space exploration worth the cost?",
+            "Should healthcare be universal?",
+            "Is nuclear energy the solution to climate change?"
+        ];
+
+        function DebateHeader({ topic }) {
+            return (
+                <div className="text-center mb-12">
+                    <div className="inline-block px-4 py-1 bg-blue-100 text-blue-600 rounded-full text-sm font-medium mb-4">
+                        Professional Debate Platform
+                    </div>
+                    <h1 className="text-4xl font-bold text-gray-800 mb-4">
+                        {topic || "Welcome to Structured Debates"}
+                    </h1>
+                    <p className="text-gray-600 max-w-2xl mx-auto">
+                        Choose your role and engage in meaningful discussions with real-time scoring and feedback
+                    </p>
+                </div>
+            );
+        }
+
+        function ScoreCard({ team, score, position }) {
+            return (
+                <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-gray-800">{team}</h3>
+                        <span className={`px-3 py-1 rounded-full text-sm ${
+                            position === 'for' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                            {position}
+                        </span>
+                    </div>
+                    <div className="text-3xl font-bold text-gray-900">{score} pts</div>
+                    <div className="mt-2 text-sm text-gray-500">Current Score</div>
+                </div>
+            );
+        }
+
+        function ModeToggle({ mode, setMode }) {
+            return (
+                <div className="flex justify-center gap-4 mb-6">
+                    <button
+                        onClick={() => setMode('text')}
+                        className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all ${
+                            mode === 'text' 
+                                ? 'bg-blue-500 text-white' 
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                    >
+                        <i className="fas fa-comments"></i>
+                        Text Mode
+                    </button>
+                    <button
+                        onClick={() => setMode('voice')}
+                        className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all ${
+                            mode === 'voice' 
+                                ? 'bg-green-500 text-white' 
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                    >
+                        <i className="fas fa-microphone"></i>
+                        Voice Mode
+                    </button>
+                </div>
+            );
+        }
+
+        function BackButton({ onClick }) {
+            return (
+                <button 
+                    onClick={onClick}
+                    className="absolute top-4 left-4 text-gray-600 hover:text-gray-800 flex items-center gap-2 transition-colors"
+                >
+                    <i className="fas fa-arrow-left"></i>
+                    <span>Back</span>
+                </button>
+            );
+        }
+
+        function App() {
+            const [isHost, setIsHost] = React.useState(null);
+            const [topic, setTopic] = React.useState('');
+            const [team1, setTeam1] = React.useState('');
+            const [team2, setTeam2] = React.useState('');
+            const [team1Position, setTeam1Position] = React.useState('for');
+            const [team2Position, setTeam2Position] = React.useState('against');
+            const [linkGenerated, setLinkGenerated] = React.useState(false);
+            const [link, setLink] = React.useState('');
+            const [memberLink, setMemberLink] = React.useState('');
+            const [joined, setJoined] = React.useState(false);
+            const [teamChoice, setTeamChoice] = React.useState('');
+            const [messages, setMessages] = React.useState([]);
+            const [message, setMessage] = React.useState('');
+            const [recording, setRecording] = React.useState(false);
+            const [points, setPoints] = React.useState({ team1: 0, team2: 0 });
+            const [debateMode, setDebateMode] = React.useState('text');
+
+            const handleHostClick = () => {
+                setIsHost(true);
+            };
+
+            const handleMemberClick = () => {
+                setIsHost(false);
+            };
+
+            const handleBackClick = () => {
+                setIsHost(null);
+                setLinkGenerated(false);
+                setLink('');
+                setMemberLink('');
+                setJoined(false);
+                setTeamChoice('');
+            };
+
+            const handleTeam1PositionChange = (position) => {
+                setTeam1Position(position);
+                setTeam2Position(position === 'for' ? 'against' : 'for');
+            };
+
+            const handleTeam2PositionChange = (position) => {
+                setTeam2Position(position);
+                setTeam1Position(position === 'for' ? 'against' : 'for');
+            };
+
+            const handleSave = () => {
+                const generatedLink = `https://example.com/debate?topic=${encodeURIComponent(topic)}&team1=${encodeURIComponent(team1)}&team2=${encodeURIComponent(team2)}&team1Position=${team1Position}&team2Position=${team2Position}`;
+                setLink(generatedLink);
+                setLinkGenerated(true);
+            };
+
+            const handleCopyLink = () => {
+                navigator.clipboard.writeText(link);
+                alert('Link copied to clipboard!');
+            };
+
+            const handleJoinRoom = () => {
+                if (memberLink) {
+                    try {
+                        const urlParams = new URLSearchParams(new URL(memberLink).search);
+                        const debateInfo = {
+                            topic: urlParams.get('topic'),
+                            team1: urlParams.get('team1'),
+                            team2: urlParams.get('team2'),
+                            team1Position: urlParams.get('team1Position'),
+                            team2Position: urlParams.get('team2Position')
+                        };
+
+                        // Store debate info in localStorage
+                        localStorage.setItem('debateTopic', debateInfo.topic);
+                        localStorage.setItem('team1Name', debateInfo.team1);
+                        localStorage.setItem('team2Name', debateInfo.team2);
+                        localStorage.setItem('team1Position', debateInfo.team1Position);
+                        localStorage.setItem('team2Position', debateInfo.team2Position);
+                        
+                        setTopic(debateInfo.topic);
+                        setTeam1(debateInfo.team1);
+                        setTeam2(debateInfo.team2);
+                        setTeam1Position(debateInfo.team1Position);
+                        setTeam2Position(debateInfo.team2Position);
+                        setJoined(true);
+                    } catch (error) {
+                        alert('Please paste a valid debate link.');
+                    }
+                } else {
+                    alert('Please paste a debate link.');
+                }
+            };
+
+            const handleTeamChoice = (team) => {
+                setTeamChoice(team);
+                localStorage.setItem('debateTeam', team);
+                localStorage.setItem('debateTopic', topic);
+                localStorage.setItem('team1Name', team1);
+                localStorage.setItem('team2Name', team2);
+                localStorage.setItem('team1Position', team1Position);
+                localStorage.setItem('team2Position', team2Position);
+                localStorage.setItem('debateMode', debateMode);
+                
+                window.location.href = debateMode === 'voice' ? 'live-debate.html' : 'main.html';
+            };
+
+            const handleSendMessage = () => {
+                if (message.trim()) {
+                    const newMessage = {
+                        text: message,
+                        team: teamChoice,
+                        timestamp: new Date().toLocaleTimeString()
+                    };
+                    setMessages([...messages, newMessage]);
+                    setMessage('');
+                    if (teamChoice === 'team1') {
+                        setPoints({ ...points, team1: points.team1 + 1 });
+                    } else {
+                        setPoints({ ...points, team2: points.team2 + 1 });
+                    }
+                }
+            };
+
+            const handleRecordVoice = () => {
+                setRecording(!recording);
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4">
+                    <div className="max-w-4xl mx-auto">
+                        {/* Header */}
+                        <div className="text-center mb-8 relative">
+                            {/* Back button for all pages except initial selection */}
+                            {isHost !== null && (
+                                <BackButton onClick={handleBackClick} />
+                            )}
+                            <h1 className="text-3xl font-bold text-gray-800">
+                                Professional Debate Platform
+                            </h1>
+                            <p className="text-gray-600 mt-2">Setup your structured debate session</p>
+                        </div>
+
+                        {/* Main Container */}
+                        <div className="bg-white rounded-2xl shadow-lg p-6">
+                            {isHost === null ? (
+                                // Role Selection
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <button
+                                        onClick={handleHostClick}
+                                        className="flex flex-col items-center p-6 rounded-xl border-2 border-transparent hover:border-blue-500 transition-all bg-blue-50"
+                                    >
+                                        <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mb-3">
+                                            <i className="fas fa-user-tie text-white text-xl"></i>
+                                        </div>
+                                        <h3 className="font-semibold text-blue-900">Host Debate</h3>
+                                        <p className="text-sm text-blue-700 mt-1">Create and moderate a session</p>
+                                    </button>
+
+                                    <button
+                                        onClick={handleMemberClick}
+                                        className="flex flex-col items-center p-6 rounded-xl border-2 border-transparent hover:border-green-500 transition-all bg-green-50"
+                                    >
+                                        <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mb-3">
+                                            <i className="fas fa-users text-white text-xl"></i>
+                                        </div>
+                                        <h3 className="font-semibold text-green-900">Join Debate</h3>
+                                        <p className="text-sm text-green-700 mt-1">Participate in a session</p>
+                                    </button>
+                                </div>
+                            ) : isHost ? (
+                                // Host Setup Form
+                                <div className="space-y-6">
+                                    {/* Mode Selection */}
+                                    <div className="flex justify-center gap-4 border-b border-gray-100 pb-6">
+                                        <button
+                                            onClick={() => setDebateMode('text')}
+                                            className={`flex items-center px-4 py-2 rounded-lg transition-all ${
+                                                debateMode === 'text'
+                                                    ? 'bg-blue-500 text-white shadow-md'
+                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            <i className="fas fa-comments mr-2"></i>
+                                            Text Debate
+                                        </button>
+                                        <button
+                                            onClick={() => setDebateMode('voice')}
+                                            className={`flex items-center px-4 py-2 rounded-lg transition-all ${
+                                                debateMode === 'voice'
+                                                    ? 'bg-green-500 text-white shadow-md'
+                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            <i className="fas fa-microphone mr-2"></i>
+                                            Voice Debate
+                                        </button>
+                                    </div>
+
+                                    {/* Compact Setup Form */}
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div className="col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Topic</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    value={topic}
+                                                    onChange={(e) => setTopic(e.target.value)}
+                                                    className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    placeholder="Enter debate topic or select from suggestions"
+                                                    list="topic-suggestions"
+                                                />
+                                                <datalist id="topic-suggestions">
+                                                    {SUGGESTED_TOPICS.map((suggestion, index) => (
+                                                        <option key={index} value={suggestion} />
+                                                    ))}
+                                                </datalist>
+                                            </div>
+                                        </div>
+
+                                        {/* Teams Section with Toggle Buttons */}
+                                        <div className="col-span-2 grid md:grid-cols-2 gap-6">
+                                            {/* Team 1 */}
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Team 1</label>
+                                                    <input
+                                                        type="text"
+                                                        value={team1}
+                                                        onChange={(e) => setTeam1(e.target.value)}
+                                                        className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="Team name"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => handleTeam1PositionChange('for')}
+                                                            className={`flex-1 px-4 py-2 rounded-lg transition-all ${
+                                                                team1Position === 'for'
+                                                                    ? 'bg-green-500 text-white shadow-md'
+                                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                            }`}
+                                                        >
+                                                            <i className="fas fa-check mr-2"></i>
+                                                            For
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleTeam1PositionChange('against')}
+                                                            className={`flex-1 px-4 py-2 rounded-lg transition-all ${
+                                                                team1Position === 'against'
+                                                                    ? 'bg-red-500 text-white shadow-md'
+                                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                            }`}
+                                                        >
+                                                            <i className="fas fa-times mr-2"></i>
+                                                            Against
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Team 2 */}
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Team 2</label>
+                                                    <input
+                                                        type="text"
+                                                        value={team2}
+                                                        onChange={(e) => setTeam2(e.target.value)}
+                                                        className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="Team name"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => handleTeam2PositionChange('for')}
+                                                            className={`flex-1 px-4 py-2 rounded-lg transition-all ${
+                                                                team2Position === 'for'
+                                                                    ? 'bg-green-500 text-white shadow-md'
+                                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                            }`}
+                                                        >
+                                                            <i className="fas fa-check mr-2"></i>
+                                                            For
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleTeam2PositionChange('against')}
+                                                            className={`flex-1 px-4 py-2 rounded-lg transition-all ${
+                                                                team2Position === 'against'
+                                                                    ? 'bg-red-500 text-white shadow-md'
+                                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                            }`}
+                                                        >
+                                                            <i className="fas fa-times mr-2"></i>
+                                                            Against
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={handleSave}
+                                            className="col-span-2 bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <i className="fas fa-link"></i>
+                                            Generate Debate Link
+                                        </button>
+                                    </div>
+
+                                    {/* Link Display */}
+                                    {linkGenerated && (
+                                        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-sm font-medium text-blue-800">Share this link with participants</span>
+                                                <button
+                                                    onClick={handleCopyLink}
+                                                    className="text-blue-600 hover:text-blue-700"
+                                                >
+                                                    <i className="fas fa-copy"></i>
+                                                </button>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={link}
+                                                readOnly
+                                                className="w-full px-3 py-2 bg-white rounded-lg border border-blue-200"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            ) : joined ? (
+                                // Team Selection after joining
+                                <div className="space-y-6">
+                                    <h2 className="text-xl font-semibold text-center mb-4">Select Your Team</h2>
+                                    <div className="grid md:grid-cols-2 gap-4">
+                                        <button
+                                            onClick={() => handleTeamChoice('team1')}
+                                            className="p-6 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
+                                        >
+                                            <h3 className="font-semibold text-blue-900">{team1}</h3>
+                                            <p className="text-blue-700 mt-2">{team1Position}</p>
+                                        </button>
+                                        <button
+                                            onClick={() => handleTeamChoice('team2')}
+                                            className="p-6 bg-green-50 hover:bg-green-100 rounded-xl transition-colors"
+                                        >
+                                            <h3 className="font-semibold text-green-900">{team2}</h3>
+                                            <p className="text-green-700 mt-2">{team2Position}</p>
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                // Join Form
+                                <div className="max-w-md mx-auto space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Debate Link</label>
+                                        <input
+                                            type="text"
+                                            value={memberLink}
+                                            onChange={(e) => setMemberLink(e.target.value)}
+                                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Paste the debate link here"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleJoinRoom}
+                                        className="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 transition-colors"
+                                    >
+                                        Join Debate
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debate Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="styles/main.css">
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #f8fafc;
+            font-family: 'Roboto', sans-serif;
+        }
+        /* Modern Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* Layout adjustments */
+        .main-container {
+            max-width: 1920px;
+            margin: 0 auto;
+        }
+        .sidebar {
+            width: 380px !important;
+            min-width: 380px;
+        }
+        .message-area {
+            height: calc(100vh - 140px);
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+        .message-bubble {
+            max-width: 85%;
+            margin: 8px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s;
+            padding: 1rem 1.25rem;
+        }
+        .message-bubble:hover {
+            transform: translateY(-1px);
+        }
+        .message-team1 {
+            margin-right: auto;
+            background: linear-gradient(135deg, #e0f2fe 0%, #dbeafe 100%);
+            border-left: 4px solid #3b82f6;
+        }
+        .message-team2 {
+            margin-left: auto;
+            background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+            border-right: 4px solid #22c55e;
+        }
+        .typing-indicator {
+            display: flex;
+            gap: 2px;
+        }
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: #90cdf4;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+        .reaction-button {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .message-bubble:hover .reaction-button {
+            opacity: 1;
+        }
+        .reaction-popup {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            border-radius: 24px;
+            padding: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 4px;
+            z-index: 50;
+        }
+        .reaction-emoji {
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 16px;
+            transition: all 0.2s ease;
+        }
+        .reaction-emoji:hover {
+            background: #f3f4f6;
+            transform: scale(1.1);
+        }
+        .reactions-display {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 4px;
+        }
+        .reaction-count {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            border: 1px solid #e5e7eb;
+        }
+        /* Add styles for call controls */
+        .call-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .call-status {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        .call-status.active {
+            background: #DEF7EC;
+            color: #03543F;
+        }
+        .call-status.inactive {
+            background: #FDE8E8;
+            color: #9B1C1C;
+        }
+        .audio-indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #10B981;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        /* Compact header and info sections */
+        .compact-section {
+            padding: 0.75rem !important;
+        }
+        .compact-info {
+            font-size: 0.875rem;
+            padding: 0.5rem !important;
+        }
+        /* Expanded fact checker */
+        .fact-checker-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 280px);
+            margin-top: 0.5rem;
+        }
+        .fact-results {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: 0.75rem;
+            padding-right: 0.5rem;
+        }
+        @keyframes fade-out {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+        
+        .animate-fade-out {
+            animation: fade-out 0.5s ease-out forwards;
+        }
+        /* Emoji picker modal styles */
+        .emoji-picker-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 0.5rem;
+            padding: 0.5rem;
+        }
+        .emoji-button {
+            padding: 0.5rem;
+            cursor: pointer;
+            border-radius: 0.25rem;
+            transition: all 0.2s;
+        }
+        .emoji-button:hover {
+            background: #f3f4f6;
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-slate-100">
+    <main class="flex h-screen main-container">
+        <!-- Left Sidebar -->
+        <aside class="w-1/4 bg-white border-r border-gray-200 shadow-lg sidebar">
+            <!-- Header -->
+            <div class="p-3 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 compact-section">
+                <div id="topic-header" class="text-2xl font-bold text-gray-800 mb-2">Loading...</div>
+                <div class="text-xs text-gray-600 flex items-center gap-2">
+                    <span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    Active Debate Session
+                </div>
+            </div>
+            
+            <!-- Team Info -->
+            <div class="p-3 space-y-2">
+                <div class="mb-2">
+                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        <i class="fas fa-users text-blue-500"></i> Your Team
+                    </h3>
+                    <div id="team-info" class="p-2 bg-blue-50 rounded-lg compact-info">
+                        <div class="font-medium text-blue-800">Loading...</div>
+                        <div class="text-sm text-blue-600 mt-1">Position: Loading...</div>
+                    </div>
+                </div>
+                
+                <!-- Points -->
+                <div class="mb-2 bg-gradient-to-r from-slate-50 to-gray-50 p-2 rounded-lg">
+                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        <i class="fas fa-star text-yellow-500"></i> Debate Points
+                    </h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="p-2 bg-green-50 rounded-lg compact-info">
+                            <div id="team1-name" class="text-sm text-green-600">Loading...</div>
+                            <div id="team1-points" class="font-bold text-green-800">0</div>
+                        </div>
+                        <div class="p-2 bg-purple-50 rounded-lg compact-info">
+                            <div id="team2-name" class="text-sm text-purple-600">Loading...</div>
+                            <div id="team2-points" class="font-bold text-purple-800">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fact Checker -->
+                <div class="fact-checker-container">
+                    <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        <i class="fas fa-check-circle text-blue-500"></i> Fact Checker
+                    </h3>
+                    <div class="bg-white rounded-lg p-3">
+                        <div class="mb-2 text-sm text-gray-600">Ask a question or verify a fact:</div>
+                        <input id="fact-checker-input" type="text" 
+                            class="w-full p-3 border border-gray-300 rounded-lg mb-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Enter fact to check...">
+                        <button id="fact-checker-send" 
+                            class="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                            <i class="fas fa-robot mr-2"></i>
+                            Check Fact
+                        </button>
+                    </div>
+                    <div id="fact-checker-results" class="fact-results">
+                        <!-- Results will appear here -->
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <section class="flex-1 flex flex-col">
+            <!-- Chat Header -->
+            <div class="p-4 border-b border-gray-200 bg-white shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                            <i class="fas fa-comments text-blue-500"></i> Debate Discussion
+                        </h2>
+                        <p class="text-sm text-gray-500">All messages are recorded for review</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <button id="call-button" 
+                            class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2">
+                            <i class="fas fa-phone-alt"></i>
+                            <span>Join Voice</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages Area -->
+            <div id="all-messages" class="message-area">
+                <!-- Messages will be inserted here -->
+            </div>
+
+            <!-- Input Area -->
+            <div id="input-area" class="p-4 bg-white border-t border-gray-200 shadow-lg">
+                <div class="flex items-center space-x-2">
+                    <input id="message-input" type="text" 
+                        class="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        placeholder="Type your message... (use ? for questions, () for answers)">
+                    <button id="record-button" 
+                        class="bg-red-500 text-white p-3 rounded-lg hover:bg-red-600 transition-colors relative">
+                        <i class="fas fa-microphone"></i>
+                        <span id="recording-indicator" class="hidden absolute -top-1 -right-1 w-3 h-3 bg-red-400 rounded-full animate-pulse"></span>
+                    </button>
+                    <button id="send-button" 
+                        class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Sidebar -->
+        <aside class="w-1/4 bg-white border-l border-gray-200 shadow-lg">
+            <!-- Questions Header -->
+            <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-question-circle text-purple-500"></i>
+                    Questions & Rebuttals
+                </h2>
+            </div>
+
+            <!-- Questions List -->
+            <div id="questions" class="p-6 space-y-4 overflow-y-auto max-h-[calc(100vh-80px)]">
+                <!-- Questions will be inserted here -->
+            </div>
+        </aside>
+    </main>
+
+    <!-- Question Verification Modal -->
+    <div role="dialog" id="question-verification" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h3 class="text-lg font-semibold mb-4">Verify Question</h3>
+            <div id="question-text" class="mb-6 p-4 bg-gray-50 rounded-lg"></div>
+            <div class="flex justify-end space-x-3">
+                <button id="disagree-button" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Reject
+                </button>
+                <button id="agree-button" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                    Accept
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emoji Picker Modal -->
+    <div role="dialog" id="emoji-picker" class="emoji-picker-modal hidden">
+        <div class="bg-white p-4 rounded-lg shadow-xl max-w-sm w-full">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Add Reaction</h3>
+                <button onclick="closeEmojiPicker()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="emoji-grid">
+                <button onclick="addReaction('👍')" class="emoji-button">👍</button>
+                <button onclick="addReaction('👎')" class="emoji-button">👎</button>
+                <button onclick="addReaction('❤️')" class="emoji-button">❤️</button>
+                <button onclick="addReaction('😊')" class="emoji-button">😊</button>
+                <button onclick="addReaction('🤔')" class="emoji-button">🤔</button>
+                <button onclick="addReaction('👏')" class="emoji-button">👏</button>
+                <button onclick="addReaction('🎉')" class="emoji-button">🎉</button>
+                <button onclick="addReaction('💡')" class="emoji-button">💡</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rating Modal -->
+    <div id="rating-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl shadow-xl max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Rate this argument</h3>
+                <button onclick="closeRatingModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div class="rating-category">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Logic & Reasoning</label>
+                    <div class="flex gap-2 justify-center" id="logic-rating">
+                        <button class="star-btn" data-value="1"><i class="far fa-star"></i></button>
+                        <button class="star-btn" data-value="2"><i class="far fa-star"></i></button>
+                        <button class="star-btn" data-value="3"><i class="far fa-star"></i></button>
+                        <button class="star-btn" data-value="4"><i class="far fa-star"></i></button>
+                        <button class="star-btn" data-value="5"><i class="far fa-star"></i></button>
+                </div>
+                </div>
+                <div class="rating-category">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Evidence & Support</label>
+                    <div class="flex gap-2 justify-center" id="evidence-rating">
+                        <button class="star-btn" data-value="1"><i class="far fa-star"></i></button>
+                        <button class="star-btn" data-value="2"><i class="far fa-star"></i></button>
+                        <button class="star-btn" data-value="3"><i class="far fa-star"></i></button>
+                        <button class="star-btn" data-value="4"><i class="far fa-star"></i></button>
+                        <button class="star-btn" data-value="5"><i class="far fa-star"></i></button>
+                    </div>
+                </div>
+                <div class="rating-category">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Clarity & Articulation</label>
+                    <div class="flex gap-2 justify-center" id="clarity-rating">
+                        <button class="star-btn" data-value="1"><i class="far fa-star"></i></button>
+                        <button class="star-btn" data-value="2"><i class="far fa-star"></i></button>
+                        <button class="star-btn" data-value="3"><i class="far fa-star"></i></button>
+                        <button class="star-btn" data-value="4"><i class="far fa-star"></i></button>
+                        <button class="star-btn" data-value="5"><i class="far fa-star"></i></button>
+                    </div>
+                </div>
+                <button onclick="submitRating()" class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600">
+                    Submit Rating
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add these elements to the main container -->
+    <div class="quick-actions">
+        <button class="action-button bg-blue-500 text-white" onclick="focusMessageInput()">
+            <i class="fas fa-keyboard"></i>
+            <span class="shortcut-hint">New message (Ctrl + M)</span>
+        </button>
+        <button class="action-button bg-green-500 text-white" onclick="toggleVoiceCall()">
+            <i class="fas fa-phone-alt"></i>
+            <span class="shortcut-hint">Toggle voice call (Ctrl + V)</span>
+        </button>
+        <button class="action-button bg-purple-500 text-white" onclick="scrollToLatest()">
+            <i class="fas fa-arrow-down"></i>
+            <span class="shortcut-hint">Latest messages (End)</span>
+        </button>
+    </div>
+
+    <!-- Add keyboard shortcuts help modal -->
+    <div id="shortcuts-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl shadow-xl max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Keyboard Shortcuts</h3>
+                <button onclick="closeShortcutsModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="p-3 bg-gray-50 rounded-lg">
+                    <kbd class="px-2 py-1 bg-gray-200 rounded">Ctrl + M</kbd>
+                    <span class="ml-2">New message</span>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-lg">
+                    <kbd class="px-2 py-1 bg-gray-200 rounded">Ctrl + V</kbd>
+                    <span class="ml-2">Toggle voice</span>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-lg">
+                    <kbd class="px-2 py-1 bg-gray-200 rounded">End</kbd>
+                    <span class="ml-2">Latest messages</span>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-lg">
+                    <kbd class="px-2 py-1 bg-gray-200 rounded">Ctrl + K</kbd>
+                    <span class="ml-2">Show shortcuts</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="scripts/main.js"></script>
+</body>
+</html>

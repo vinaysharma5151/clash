@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Debate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen p-6">
+        <!-- Topic Header -->
+        <div class="mb-6 flex justify-between items-center bg-white p-4 rounded-lg shadow-sm">
+            <div class="flex items-center gap-4">
+                <div class="p-2 bg-blue-50 rounded-full">
+                    <i class="fas fa-gavel text-blue-600 text-xl"></i>
+                </div>
+                <div>
+                    <h1 id="debate-topic" class="text-2xl font-bold text-gray-800">Topic Name</h1>
+                    <p class="text-sm text-gray-500">Live Debate Session</p>
+                </div>
+            </div>
+            <div id="host-controls" class="hidden flex items-center gap-3">
+                <span class="text-sm text-gray-600">Host Controls</span>
+                <div class="flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full">
+                    <div class="w-2 h-2 bg-green-500 rounded-full pulse-animation"></div>
+                    <span class="text-sm text-green-700">Live</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-12 gap-6">
+            <!-- Left Section -->
+            <div class="col-span-3 space-y-4">
+                <!-- Notes Section -->
+                <div class="bg-white rounded-lg p-4 shadow-sm h-64">
+                    <h2 class="font-semibold mb-2">Notes</h2>
+                    <textarea 
+                        id="debate-notes"
+                        class="w-full h-48 p-2 border rounded resize-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Take notes during the debate..."
+                    ></textarea>
+                </div>
+
+                <!-- AI Fact Checker -->
+                <div class="bg-white rounded-lg p-4 shadow-sm h-64">
+                    <h2 class="font-semibold mb-2">AI Fact Checker</h2>
+                    <div class="space-y-2">
+                        <input 
+                            type="text" 
+                            id="fact-check-input"
+                            class="w-full p-2 border rounded"
+                            placeholder="Enter statement to fact check..."
+                        >
+                        <button 
+                            onclick="checkFacts()"
+                            class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
+                        >
+                            Check Facts
+                        </button>
+                        <div id="fact-check-results" class="mt-2 text-sm"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Section -->
+            <div class="col-span-5">
+                <div class="bg-white rounded-lg p-4 shadow-sm h-[600px] flex flex-col">
+                    <!-- Team Labels and Scores -->
+                    <div class="flex justify-between mb-4">
+                        <div class="text-center">
+                            <span id="team-a-name" class="font-semibold">Team A</span>
+                            <div id="team-a-score" class="text-2xl font-bold text-blue-600">0</div>
+                        </div>
+                        <div class="text-center">
+                            <span id="team-b-name" class="font-semibold">Team B</span>
+                            <div id="team-b-score" class="text-2xl font-bold text-green-600">0</div>
+                        </div>
+                    </div>
+
+                    <!-- Host Scoring Controls -->
+                    <div id="host-scoring-panel" class="mb-4 p-4 bg-gray-50 rounded-lg">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-semibold">Scoring Parameters</h3>
+                            <button 
+                                onclick="addNewParameter()"
+                                class="text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                            >
+                                <i class="fas fa-plus"></i>
+                                Add Parameter
+                            </button>
+                        </div>
+
+                        <!-- Scoring Parameters -->
+                        <div id="scoring-parameters" class="space-y-4">
+                            <!-- Default Parameters -->
+                            <div class="parameter-item">
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-sm font-medium">Logic & Reasoning</label>
+                                    <span class="score-value text-blue-600">5</span>
+                                </div>
+                                <input type="range" min="0" max="10" value="5" 
+                                    class="w-full" 
+                                    oninput="updateParameterScore(this, 'logic')"
+                                >
+                            </div>
+
+                            <div class="parameter-item">
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-sm font-medium">Articulation</label>
+                                    <span class="score-value text-blue-600">5</span>
+                                </div>
+                                <input type="range" min="0" max="10" value="5" 
+                                    class="w-full" 
+                                    oninput="updateParameterScore(this, 'articulation')"
+                                >
+                            </div>
+
+                            <div class="parameter-item">
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="text-sm font-medium">Evidence Support</label>
+                                    <span class="score-value text-blue-600">5</span>
+                                </div>
+                                <input type="range" min="0" max="10" value="5" 
+                                    class="w-full" 
+                                    oninput="updateParameterScore(this, 'evidence')"
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Team Selection for Scoring -->
+                        <div class="mt-4 flex gap-2">
+                            <button 
+                                onclick="assignScores('team-a')"
+                                class="flex-1 py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600"
+                            >
+                                Assign to Team A
+                            </button>
+                            <button 
+                                onclick="assignScores('team-b')"
+                                class="flex-1 py-2 px-4 bg-green-500 text-white rounded hover:bg-green-600"
+                            >
+                                Assign to Team B
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Debate Content Area -->
+                    <div class="flex-1 border rounded-lg p-4 overflow-y-auto" id="debate-content">
+                        <!-- Debate content will be added here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Section -->
+            <div class="col-span-4 space-y-4">
+                <!-- Team Members Cards -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                        <h2 class="font-semibold mb-3 text-blue-700">Team A Participants</h2>
+                        <div id="team-a-members" class="space-y-2">
+                            <!-- Example participant structure -->
+                            <div class="p-2 bg-blue-50 rounded-lg flex items-center justify-between">
+                                <span class="font-medium">John Doe</span>
+                                <span class="text-sm text-blue-600">Speaking</span>
+                            </div>
+                            <div class="p-2 bg-gray-50 rounded-lg">
+                                <span>Jane Smith</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                        <h2 class="font-semibold mb-3 text-green-700">Team B Participants</h2>
+                        <div id="team-b-members" class="space-y-2">
+                            <!-- Participants will be added dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div class="bg-white rounded-lg p-4 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="font-semibold text-gray-800">Debate Results</h2>
+                        <button onclick="toggleResultsView()" class="text-sm text-blue-600 hover:text-blue-700">
+                            View Details
+                        </button>
+                    </div>
+                    
+                    <!-- Overall Scores -->
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="p-3 bg-blue-50 rounded-lg text-center">
+                            <div class="text-sm font-medium text-blue-800">Team A Total</div>
+                            <div id="team-a-total" class="text-2xl font-bold text-blue-600">0</div>
+                        </div>
+                        <div class="p-3 bg-green-50 rounded-lg text-center">
+                            <div class="text-sm font-medium text-green-800">Team B Total</div>
+                            <div id="team-b-total" class="text-2xl font-bold text-green-600">0</div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Results (Initially Hidden) -->
+                    <div id="detailed-results" class="hidden space-y-3">
+                        <div class="border-t pt-3">
+                            <h3 class="text-sm font-medium text-gray-600 mb-2">Parameter Breakdown</h3>
+                            <div id="parameter-results" class="space-y-2">
+                                <!-- Parameters will be added dynamically -->
+                            </div>
+                        </div>
+                        
+                        <div class="border-t pt-3">
+                            <h3 class="text-sm font-medium text-gray-600 mb-2">Round History</h3>
+                            <div id="round-history" class="space-y-2 max-h-40 overflow-y-auto">
+                                <!-- Round history will be added dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Control Buttons -->
+                <div class="flex justify-center gap-4">
+                    <button 
+                        onclick="nextTurn()"
+                        class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 flex items-center gap-2"
+                    >
+                        <i class="fas fa-step-forward"></i>
+                        Next Turn
+                    </button>
+                    <button 
+                        onclick="endDebate()"
+                        class="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600 flex items-center gap-2"
+                    >
+                        <i class="fas fa-flag-checkered"></i>
+                        End Debate
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="scripts/live-debate.js"></script>
+</body>
+</html> 
